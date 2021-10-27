@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap-theme.min.css" integrity="sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
+
+
+</head>
+<body>
+<div id="app" class="container-fluid">
+    <div class="jumbotron">
+        <h1>Hello, Youtubers!</h1>
+        <p>Here is the App you can use to repeat your videos</p>
+        <p><button class="btn btn-primary btn-lg"  role="button" @click="emptyVideo"> Add Video</button></p>
+    </div>
+    <div class="row">
+        <div class="col-md-3">
+            Max tabs : <input type="number" class="form-control" v-model="maximum_counter" />
+        </div>
+        <div class="col-md-3">
+            Loading time in seconds for each video : <input type="number" class="form-control" v-model="loading_seconds" />
+        </div>
+        <div class="col-md-3">
+            Delay after each video in seconds : <input type="number" class="form-control" v-model="delay_seconds" />
+        </div>
+    </div>
+
+    <h1>{{ tabs }}</h1>
+
+    <div v-if="s_video" class="form form-inline">
+
+            <div class="row text-center">
+                <h1>Video Form </h1>
+                <div class="">
+                    <div class="form-group">
+                        <label class="control-label">Url</label>
+                        <input type="text" class="form-control" v-model="s_video.url" placeholder="Video url" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Minutes</label>
+                        <input type="number" v-model="s_video.mins" class="form-control" placeholder="minutes" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Seconds</label>
+                        <input type="number" v-model="s_video.seconds" class="form-control" placeholder="seconds" />
+                    </div>
+
+                    <button type="button" class="btn btn-primary" @click="addVideo(s_video)"> Save </button>
+                </div>
+            </div>
+    </div>
+    <hr />
+
+    <div div class="row">
+        <div class="col-md-6">
+            <h3>Videos <span v-show="videos.length === 0" class="text-danger">(No videos)</span> </h3>
+
+            <div class="list-group"  v-show="videos.length > 0">
+
+                <div class="text-center" v-show="videos.length > 0">
+                    <button type="button" @click="startVideos" class="btn btn-primary"> Start Tracks</button>
+                    <button type="button" @click="stopVideos" class="btn btn-default"> stop Tracks</button>
+                    <button type="button" @click="resetLocalStorageVideos" class="btn btn-danger"> Reset Videos</button>
+                </div>
+                <div v-for="video in videos" class="list-group-item">
+                    <img :src="getImageUrl(video)" class="img img-thumbnail" />
+                    <span class="badge" style="font-size: x-large">{{ video.counter}}</span>
+                    <div class="list-group-item-text">
+                        <p>Minutes : {{ video.mins > 0 ? video.mins : 0}}
+                            Seconds : {{ video.seconds > 0 ? video.seconds : 0 }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="col-md-6">
+            <h3>Tracks <span v-show="videos.length === 0" class="text-danger">(No tracks)</span> </h3>
+            <div class="list-group"  v-show="tracks.length > 0">
+                <button class="btn btn-success" @click="resetTracks"> Rest Tracks</button>
+                <div v-for="track in tracks" class="list-group-item">
+                    <img :src="getImageUrl(track.video)" class="img img-thumbnail" />
+                    <div class="list-group-item-text">
+                        <p>Minutes : {{ track.video.mins > 0 ? track.video.mins : 0}}
+                        Seconds : {{ track.video.seconds > 0 ? track.video.seconds : 0 }}
+                        </p>
+                        <b>time : {{ msToTime(track.time) }}</b>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <hr/>
+
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script type="module">
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyDSfLrW2EXC4vnixXQoN2O1i44cRa3P1fI",
+        authDomain: "video-repeater-bfcdf.firebaseapp.com",
+        projectId: "video-repeater-bfcdf",
+        storageBucket: "video-repeater-bfcdf.appspot.com",
+        messagingSenderId: "393824724258",
+        appId: "1:393824724258:web:295ae0fb9db4e98277317b"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    var db = firebase.firestore();
+    db.collection("users").add({
+        first: "Ada",
+        last: "Lovelace",
+        born: 1815
+    })
+        .then((docRef) => {
+            console.log("Document written with ID: ", docRef.id);
+        })
+        .catch((error) => {
+            console.error("Error adding document: ", error);
+        });
+    db.collection("users").get().then((querySnapshot) => {
+        querySnapshot.forEach((doc) => {
+            console.log(`${doc.id} => ${JSON.stringify(doc.data())}`);
+        });
+    });
+
+
+</script>
+
+<script type="text/javascript">
+    var app = new Vue({el: '#app',
+    data : function () {
+        return {
+            message : "hwll",
+            repeatOrNot: true,
+            startTrack: false,
+            videoObject :
+                {
+                    url:  '',
+                    mins: '',
+                    seconds : '',
+                    mili_seconds : null
+                },
+            videos : [],
+            milli_seconds_now : null,
+            last_run_time: null,
+            today: null,
+            s_video: null,
+            maximum_counter: 3,
+            tracks: [],
+            tabs : 0,
+            loading_seconds : 3,
+            // use for opening tab after this time
+            delay_seconds : 3,
+
+
+        }
+    },
+        methods: {
+        addVideo(video){
+            let videos = this.getLocalStorageVideos();
+            video.mili_seconds =  (video.mins !== '' && video.mins !== 0) ? video.mins * 60 * 1000 : 0;
+            video.mili_seconds +=  (video.seconds !== '' && video.seconds !== 0) ? video.seconds * 1000 : 0;
+console.log(videos);
+            videos.push(
+               video
+            );
+            localStorage.setItem('videos', JSON.stringify(videos));
+            this.videos = videos;
+            this.emptyVideo();
+        },
+            emptyVideo(){
+                this.s_video =  this.getNewVideoObject();
+            },
+            startVideos(){
+                this.startTrack = true;
+                this.makeTracks();
+
+            },
+            repeatVideos(){
+            if(this.repeatOrNot){
+                let interval = setInterval(this.startVideos, 10000);
+                setTimeout(function (){
+                    clearInterval(interval);
+                }, 10000 * 2);
+            }
+
+            },
+            stopVideos(){
+            this.startTrack = false;
+            },
+
+            runVideo(video){
+                    let win = window.open(video.url);
+                    let timer = video.mili_seconds;
+                    video.counter++;
+                    setTimeout(function () {  win.close();
+                           if(video.counter <= this.maximum_counter) {
+                               this.runVideo(video);
+                           }
+                    }, timer + timer);
+            },
+            getNewVideoObject(){
+                return {
+                    url:  "https://www.youtube.com/watch?v=F7mKD2Un65I",
+                    mins: '',
+                    seconds : 10,
+                    mili_seconds : null,
+                    counter : 0,
+                    run_times : []
+                };
+            },
+            openTab(video){
+            app.tabs++;
+                let win = window.open(video.url);
+                let timer = video.mili_seconds + (parseInt(this.loading_seconds) * 3);
+                app.videos.filter(v => v.url === video.url)[0].counter++;
+                setTimeout(function () {
+                    win.close();
+                    app.tabs--;
+                }, timer);
+            },
+
+             msToTime(s) {
+                 return (new Date(s)).toString(); // result: Wed Jan 12 2011 12:42:46 GMT-0800 (PST)
+            },
+            makeTracks(){
+
+                let d = new Date();
+                let time_now_in_milli_seconds = d.getTime();
+                // loop through for max counter
+                let loading_seconds = parseInt(this.loading_seconds) * 1000;
+               // for (let i = 0 ; i< this.maximum_counter; i++) {
+                    // make tracks with 3 seconds difference
+                    this.videos.forEach( function (video, index, array) {
+                        for (let i = 0 ; i< app.maximum_counter; i++) {
+
+                            // add 3 seconds for each video
+                            console.log((parseInt(app.delay_seconds) * 1000), 'delay time')
+                            time_now_in_milli_seconds += ((parseInt(app.delay_seconds) * 1000));
+
+                            console.log(loading_seconds, time_now_in_milli_seconds, 'secnds time');
+                            app.tracks.push({
+                                id: index, video, time: time_now_in_milli_seconds,
+                            });
+                        }
+                    })
+                //}
+            },
+            getImageUrl(video) {
+            if(!video || !video.url) {
+                return  '';
+            }
+                return `https://img.youtube.com/vi/${ video.url.split('v=')[1]}/mqdefault.jpg`;
+            },
+
+            getLocalStorageVideos(){
+                if(!localStorage.hasOwnProperty('videos')){
+                    localStorage.setItem('videos', JSON.stringify([]));
+                }
+                return JSON.parse(localStorage.getItem('videos'));
+            },
+            resetLocalStorageVideos(){
+                    localStorage.setItem('videos', JSON.stringify([]));
+                    this.videos = [];
+                    this.tracks = [];
+            },
+            resetTracks(){
+                this.tracks = [];
+                this.makeTracks();
+            }
+
+        },
+
+        mounted(){
+            let d = new Date();
+            this.today = d;
+            let milli_seconds = d.getTime();
+            this.videos = this.getLocalStorageVideos();
+
+            localStorage.setItem('last_run_time', milli_seconds);
+
+            setInterval(function () {
+                if (!app.startTrack) {
+                    return 0;
+                }
+                if( app.tabs == app.maximum_counter) {
+                    return 0;
+                }
+                let d = new Date();
+                let milli_seconds = d.getTime();
+                app.milli_seconds_now = milli_seconds;
+                if( app.startTrack && app.tracks.length <  app.maximum_counter)
+                {
+                    app.makeTracks();
+                }
+                let current_track = app.tracks.filter( function (track) {
+                    return track.time <= milli_seconds;
+                })[0];
+                if(current_track != undefined) {
+                    app.tracks = app.tracks.filter(function (track){
+                        return track.time !== current_track.time;
+                    })
+                    app.openTab(current_track.video);
+                }
+
+                 console.log({current_track, milli_seconds});
+                }, 1000); //Every second
+        }
+
+
+    })
+
+</script>
+</body>
+</html>
